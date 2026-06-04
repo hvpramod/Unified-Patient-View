@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm install *)",
+      "Bash(npx next *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(mkdir -p \"F:\\\\UnifiedPatienntView\\\\apps\\\\frontend\\\\.claude\")",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(Remove-Item -Recurse -Force \"F:\\\\UnifiedPatienntView\\\\apps\\\\frontend\\\\.next\" -ErrorAction SilentlyContinue)",
+      "Bash(Write-Host \"cache cleared\")",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git add *)"
+    ]
+  }
+}

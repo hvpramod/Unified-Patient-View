@@ -1,0 +1,155 @@
+version: "3.9"
+
+services:
+  # ── Infrastructure ──────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: upv
+      POSTGRES_PASSWORD: upv
+      POSTGRES_DB: upv
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U upv"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    depends_on: [zookeeper]
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  # ── Mock External Services ───────────────────────────────────────────────────
+  mock-healthgorilla:
+    build:
+      context: ./mocks/healthgorilla
+    ports:
+      - "8081:8080"
+
+  mock-pathway:
+    build:
+      context: ./mocks/pathway
+    ports:
+      - "8082:8080"
+
+  # ── Application Services ────────────────────────────────────────────────────
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile.migrations
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://upv:upv@postgres:5432/upv
+
+  ingestion-service:
+    build:
+      context: ./apps/ingestion-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://upv:upv@postgres:5432/upv
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      HEALTHGORILLA_BASE_URL: http://mock-healthgorilla:8080
+      PATHWAY_BASE_URL: http://mock-pathway:8080
+    env_file: [.env.local]
+
+  conflict-detection:
+    build:
+      context: ./apps/conflict-detection
+    depends_on: [postgres, kafka, migrations]
+    ports:
+      - "8003:8003"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://upv:upv@postgres:5432/upv
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  ai-agent-service:
+    build:
+      context: ./apps/ai-agent-service
+    depends_on: [postgres, redis, kafka, migrations]
+    ports:
+      - "8004:8004"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://upv:upv@postgres:5432/upv
+      REDIS_URL: redis://redis:6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    env_file: [.env.local]
+
+  gateway-api:
+    build:
+      context: ./apps/gateway-api
+    depends_on: [postgres, redis]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+asyncpg://upv:upv@postgres:5432/upv
+      REDIS_URL: redis://redis:6379
+      AI_AGENT_SERVICE_URL: http://ai-agent-service:8004
+      INGESTION_SERVICE_URL: http://ingestion-service:8001
+    env_file: [.env.local]
+
+  notification-service:
+    build:
+      context: ./apps/notification-service
+    depends_on: [kafka]
+    ports:
+      - "8006:8006"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AI_AGENT_SERVICE_URL: http://ai-agent-service:8004
+    env_file: [.env.local]
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on: [gateway-api]
+    ports:
+      - "3000:3000"
+    env_file: [.env.local]
+
+volumes:
+  pgdata:

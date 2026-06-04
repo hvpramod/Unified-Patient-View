@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: upv-ingress
+  namespace: upv-api
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # Allow iFrame embedding from EMR origins
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header Content-Security-Policy "frame-ancestors 'self' https://*.athenahealth.com https://*.emr-system.com";
+spec:
+  tls:
+    - hosts:
+        - upv.yourdomain.com
+      secretName: upv-tls-secret
+  rules:
+    - host: upv.yourdomain.com
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-api
+                port:
+                  number: 80
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

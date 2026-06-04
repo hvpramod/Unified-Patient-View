@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --border: 214.3 31.8% 91.4%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * { border-color: hsl(214.3 31.8% 91.4%); }
+  body { background: white; color: hsl(222.2 84% 4.9%); }
+}
+
+/* iFrame embedding reset */
+html, body {
+  height: 100%;
+  overflow: auto;
+}
+
+/* Clinical severity colors */
+.severity-critical { @apply text-clinical-critical bg-red-50 border-red-200; }
+.severity-high { @apply text-clinical-high bg-orange-50 border-orange-200; }
+.severity-medium { @apply text-clinical-medium bg-amber-50 border-amber-200; }
+.severity-low { @apply text-clinical-low bg-green-50 border-green-200; }
+
+/* Confidence score bar */
+.confidence-bar {
+  @apply h-1.5 rounded-full bg-gray-200;
+}
+.confidence-fill {
+  @apply h-full rounded-full transition-all;
+}

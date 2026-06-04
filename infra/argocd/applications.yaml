@@ -1,0 +1,55 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: upv-gateway-api
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/unified-patient-view
+    targetRevision: HEAD
+    path: infra/k8s/services/gateway-api.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: upv-api
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: upv-ai-agent-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/your-org/unified-patient-view
+    targetRevision: HEAD
+    path: infra/k8s/services/ai-agent-service.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: upv-ai
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: upv
+  namespace: argocd
+spec:
+  description: Unified Patient View platform
+  sourceRepos:
+    - "https://github.com/your-org/unified-patient-view"
+  destinations:
+    - namespace: "upv-*"
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace

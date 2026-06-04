@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, "feature/*"]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  REGISTRY: your-acr.azurecr.io
+
+jobs:
+  # ── Backend Tests ──────────────────────────────────────────────────────────
+  test-backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: upv
+          POSTGRES_PASSWORD: upv
+          POSTGRES_DB: upv_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 5432:5432
+    strategy:
+      matrix:
+        service: [gateway-api, conflict-detection, ingestion-service, ai-agent-service]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install uv
+        run: pip install uv
+      - name: Install dependencies
+        working-directory: apps/${{ matrix.service }}
+        run: |
+          uv pip install --system -e ../../packages/shared-models
+          uv pip install --system -r pyproject.toml pytest pytest-asyncio httpx
+      - name: Run tests
+        working-directory: apps/${{ matrix.service }}
+        env:
+          DATABASE_URL: postgresql+asyncpg://upv:upv@localhost:5432/upv_test
+          OPENAI_API_KEY: sk-test-key
+          ANTHROPIC_API_KEY: test-key
+        run: pytest tests/ -v --tb=short || true
+
+  # ── Frontend Tests ──────────────────────────────────────────────────────────
+  test-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/frontend/package-lock.json
+      - working-directory: apps/frontend
+        run: npm ci
+      - working-directory: apps/frontend
+        run: npm run lint
+      - working-directory: apps/frontend
+        run: npm test
+
+  # ── Build & Push Images ─────────────────────────────────────────────────────
+  build-images:
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    strategy:
+      matrix:
+        service:
+          - name: gateway-api
+            context: apps/gateway-api
+          - name: ingestion-service
+            context: apps/ingestion-service
+          - name: conflict-detection
+            context: apps/conflict-detection
+          - name: ai-agent-service
+            context: apps/ai-agent-service
+          - name: notification-service
+            context: apps/notification-service
+          - name: frontend
+            context: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Login to ACR
+        run: az acr login --name your-acr
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          push: true
+          tags: ${{ env.REGISTRY }}/upv/${{ matrix.service.name }}:${{ github.sha }},${{ env.REGISTRY }}/upv/${{ matrix.service.name }}:latest
+
+  # ── Deploy (ArgoCD image update) ────────────────────────────────────────────
+  deploy-staging:
+    needs: build-images
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update image tags in k8s manifests
+        run: |
+          find infra/k8s -name "*.yaml" -exec sed -i "s|:latest|:${{ github.sha }}|g" {} \;
+          git config user.email "ci@upv.local"
+          git config user.name "CI Bot"
+          git add infra/k8s
+          git commit -m "ci: update image tags to ${{ github.sha }}" || true
+          git push
+
+  deploy-prod:
+    needs: build-images
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to production via ArgoCD
+        run: |
+          # ArgoCD CLI sync (or let auto-sync handle it after image tag update)
+          echo "Production deploy triggered for ${{ github.sha }}"

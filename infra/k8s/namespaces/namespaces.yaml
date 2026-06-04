@@ -1,0 +1,27 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: upv-frontend
+  labels:
+    app.kubernetes.io/part-of: upv
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: upv-api
+  labels:
+    app.kubernetes.io/part-of: upv
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: upv-ai
+  labels:
+    app.kubernetes.io/part-of: upv
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: upv-integrations
+  labels:
+    app.kubernetes.io/part-of: upv

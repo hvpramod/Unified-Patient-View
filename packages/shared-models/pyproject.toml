@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "upv-models"
+version = "0.1.0"
+dependencies = ["pydantic>=2.5", "python-dateutil>=2.8"]
+
+[tool.setuptools.packages.find]
+where = ["."]

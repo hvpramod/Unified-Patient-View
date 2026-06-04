@@ -1,0 +1,12 @@
+[project]
+name = "notification-service"
+version = "0.1.0"
+dependencies = [
+    "fastapi>=0.109",
+    "uvicorn[standard]>=0.27",
+    "aiokafka>=0.10",
+    "httpx>=0.27",
+    "pydantic-settings>=2.2",
+    "structlog>=24.1",
+    "tenacity>=8.2",
+]
