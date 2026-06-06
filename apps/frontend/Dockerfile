@@ -1,7 +1,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
+# Bypass corporate SSL proxy for npm registry
+RUN npm config set strict-ssl false
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 FROM node:20-alpine AS builder
 WORKDIR /app

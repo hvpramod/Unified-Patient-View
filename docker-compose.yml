@@ -65,7 +65,7 @@ services:
     ports:
       - "8082:8080"
 
-  # ── Application Services ────────────────────────────────────────────────────
+  # ── DB Migrations ─────────────────────────────────────────────────────────
   migrations:
     build:
       context: .
@@ -76,9 +76,12 @@ services:
     environment:
       DATABASE_URL: postgresql://upv:upv@postgres:5432/upv
 
+  # ── Application Services ─────────────────────────────────────────────────
+  # NOTE: build context is repo root so packages/shared-models is accessible
   ingestion-service:
     build:
-      context: ./apps/ingestion-service
+      context: .
+      dockerfile: apps/ingestion-service/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,12 +96,19 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       HEALTHGORILLA_BASE_URL: http://mock-healthgorilla:8080
       PATHWAY_BASE_URL: http://mock-pathway:8080
-    env_file: [.env.local]
+    env_file: .env.local
 
   conflict-detection:
     build:
-      context: ./apps/conflict-detection
-    depends_on: [postgres, kafka, migrations]
+      context: .
+      dockerfile: apps/conflict-detection/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     ports:
       - "8003:8003"
     environment:
@@ -107,20 +117,36 @@ services:
 
   ai-agent-service:
     build:
-      context: ./apps/ai-agent-service
-    depends_on: [postgres, redis, kafka, migrations]
+      context: .
+      dockerfile: apps/ai-agent-service/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     ports:
       - "8004:8004"
     environment:
       DATABASE_URL: postgresql+asyncpg://upv:upv@postgres:5432/upv
       REDIS_URL: redis://redis:6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    env_file: [.env.local]
+    env_file: .env.local
 
   gateway-api:
     build:
-      context: ./apps/gateway-api
-    depends_on: [postgres, redis]
+      context: .
+      dockerfile: apps/gateway-api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     environment:
@@ -128,28 +154,32 @@ services:
       REDIS_URL: redis://redis:6379
       AI_AGENT_SERVICE_URL: http://ai-agent-service:8004
       INGESTION_SERVICE_URL: http://ingestion-service:8001
-    env_file: [.env.local]
+    env_file: .env.local
 
   notification-service:
     build:
-      context: ./apps/notification-service
-    depends_on: [kafka]
+      context: .
+      dockerfile: apps/notification-service/Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
     ports:
       - "8006:8006"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       AI_AGENT_SERVICE_URL: http://ai-agent-service:8004
-    env_file: [.env.local]
+    env_file: .env.local
 
   frontend:
     build:
       context: ./apps/frontend
       args:
         NEXT_PUBLIC_API_URL: http://localhost:8000
-    depends_on: [gateway-api]
+    depends_on:
+      - gateway-api
     ports:
       - "3000:3000"
-    env_file: [.env.local]
+    env_file: .env.local
 
 volumes:
   pgdata:

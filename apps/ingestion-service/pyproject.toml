@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "ingestion-service"
@@ -16,5 +16,5 @@ dependencies = [
     "python-jose[cryptography]>=3.3",
     "structlog>=24.1",
     "tenacity>=8.2",
-    "hashlib-compat>=1.0",
+    "python-dateutil>=2.8",
 ]

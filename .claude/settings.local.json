@@ -11,7 +11,18 @@
       "Bash(Write-Host \"cache cleared\")",
       "Bash(git init *)",
       "Bash(git remote *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git config *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git branch *)",
+      "Bash(git push *)",
+      "Bash(docker --version)",
+      "Bash(docker-compose --version)",
+      "Bash(docker info *)",
+      "Bash(docker compose *)",
+      "Bash(docker context *)",
+      "Bash(break)",
+      "Bash(awk '{print $1, $7, $8}')"
     ]
   }
 }
