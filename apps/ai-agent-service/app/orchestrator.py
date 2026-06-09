@@ -23,7 +23,7 @@ AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=F
 
 
 async def get_redis():
-    return await aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+    return aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True, protocol=2)
 
 
 async def fetch_patient_resources(patient_id: str) -> list[dict]:

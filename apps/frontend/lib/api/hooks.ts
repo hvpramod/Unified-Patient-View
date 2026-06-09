@@ -1,21 +1,29 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMsal } from "@azure/msal-react";
-import { loginRequest } from "@/lib/auth/msal-config";
 import { apiGet, apiPatch, apiPost } from "./client";
 
+// In dev/demo mode there is no MSAL — just return empty string and the client
+// will fall back to the demo-token automatically.
 function useToken() {
-  const { instance, accounts } = useMsal();
-  return async () => {
-    if (!accounts[0]) return "";
-    try {
-      const result = await instance.acquireTokenSilent({ ...loginRequest, account: accounts[0] });
-      return result.accessToken;
-    } catch {
-      return "";
-    }
-  };
+  try {
+    // Dynamically import MSAL only if it's configured
+    const { useMsal } = require("@azure/msal-react");
+    const { loginRequest } = require("@/lib/auth/msal-config");
+    const { instance, accounts } = useMsal();
+    return async () => {
+      if (!accounts[0]) return "";
+      try {
+        const result = await instance.acquireTokenSilent({ ...loginRequest, account: accounts[0] });
+        return result.accessToken;
+      } catch {
+        return "";
+      }
+    };
+  } catch {
+    // MSAL not available — dev/demo mode
+    return async () => "";
+  }
 }
 
 export function usePatient(patientId: string) {
@@ -36,7 +44,7 @@ export function usePatientTimeline(patientId: string) {
     queryKey: ["timeline", patientId],
     queryFn: async () => {
       const token = await getToken();
-      return apiGet(`/patients/${patientId}/timeline`, token);
+      return apiGet(`/patients/${patientId}/timeline?limit=50`, token);
     },
     enabled: !!patientId,
   });
@@ -132,7 +140,17 @@ export function useResolveConflict() {
   const getToken = useToken();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ conflictId, patientId, action, annotation }: { conflictId: string; patientId: string; action: string; annotation?: string }) => {
+    mutationFn: async ({
+      conflictId,
+      patientId,
+      action,
+      annotation,
+    }: {
+      conflictId: string;
+      patientId: string;
+      action: string;
+      annotation?: string;
+    }) => {
       const token = await getToken();
       return apiPatch(`/conflicts/${conflictId}`, token, { action, annotation });
     },
@@ -145,7 +163,15 @@ export function useResolveConflict() {
 export function useActOnRecommendation() {
   const getToken = useToken();
   return useMutation({
-    mutationFn: async ({ recommendationId, action, annotation }: { recommendationId: string; action: string; annotation?: string }) => {
+    mutationFn: async ({
+      recommendationId,
+      action,
+      annotation,
+    }: {
+      recommendationId: string;
+      action: string;
+      annotation?: string;
+    }) => {
       const token = await getToken();
       return apiPost(`/recommendations/${recommendationId}/action`, token, { action, annotation });
     },

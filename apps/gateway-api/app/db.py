@@ -13,7 +13,8 @@ async def get_db():
 
 
 async def get_redis():
-    client = await aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True)
+    # protocol=2 ensures RESP2 — compatible with Redis < 6 (Windows Redis)
+    client = aioredis.from_url(settings.redis_url, encoding="utf-8", decode_responses=True, protocol=2)
     try:
         yield client
     finally:
