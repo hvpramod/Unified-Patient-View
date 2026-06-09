@@ -15,7 +15,8 @@ depends_on = None
 
 def upgrade() -> None:
     op.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
-    op.execute('CREATE EXTENSION IF NOT EXISTS "vector"')
+    # pgvector skipped — install separately if needed for RAG features
+    # op.execute('CREATE EXTENSION IF NOT EXISTS "vector"')
 
     # ── users ──────────────────────────────────────────────────────────────
     op.create_table(
