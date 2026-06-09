@@ -36,3 +36,10 @@ Thumbs.db
 playwright-report/
 test-results/
 coverage/
+
+# Runtime logs
+logs/
+*.log
+
+# Claude Code internal
+.claude/settings.local.json
